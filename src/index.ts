@@ -2,7 +2,7 @@ export interface Env {
   GithubOwner: string;
   GithubRepo: string;
   GithubPAT: string;
-  API_KEY: string; 
+  API_KEY: string; // Add your API key as an environment variable
 }
 
 export default {
@@ -45,11 +45,12 @@ export default {
           ImageID += String.fromCharCode(Math.floor(Math.random() * 26) + 97);
         }
         
+
         const base64Match = Image.match(/^data:image\/(\w+);base64,(.+)$/);
         if (!base64Match) {
 
           console.warn("Input is not a data URL, assuming JPEG format");
-          const rawBase64 = Image.replace(/^image\/\w+;base64,/, '');
+          const rawBase64 = Image.replace(/^data:image\/\w+;base64,/, '');
           if (!rawBase64 || rawBase64.length === 0) {
             return new Response('Invalid image data', { 
               status: 400,
@@ -65,8 +66,8 @@ export default {
               'User-Agent': 'langningchen-image',
             },
             body: JSON.stringify({
-              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.headers.get('CF-IPCountry') || 'unknown'}/${request.headers.get('CF-IPCity') || 'unknown'}`,
-              content: rawBase64
+              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.cf?.country}/${request.cf?.city}`,
+              content: rawBase64 
             })
           });
           
@@ -111,6 +112,7 @@ export default {
           });
         }
         
+
         const response = await fetch(`https://api.github.com/repos/${env.GithubOwner}/${env.GithubRepo}/contents/${ImageID}.webp`, {
           method: 'PUT',
           headers: {
@@ -119,8 +121,8 @@ export default {
             'User-Agent': 'langningchen-image',
           },
           body: JSON.stringify({
-              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.headers.get('CF-IPCountry') || 'unknown'}/${request.headers.get('CF-IPCity') || 'unknown'}`,
-            content: ImageData 
+            message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.cf?.country}/${request.cf?.city}`,
+            content: ImageData // Use the extracted base64 data
           })
         });
         
@@ -190,7 +192,7 @@ export default {
         
         return new Response(imageBuffer, { 
           headers: { 
-            'Content-Type': 'image/webp',
+            'Content-Type': 'image/webp', // Always serve as WebP
             'Cache-Control': 'public, max-age=31536000, immutable',
             'ETag': imageETag,
             'Last-Modified': new Date().toUTCString(),
