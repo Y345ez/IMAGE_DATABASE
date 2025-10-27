@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Toaster } from "react-hot-toast";
 import {
   Container,
   Typography,
@@ -65,7 +66,7 @@ const App: React.FC = () => {
         <Typography variant="h4" component="h1" gutterBottom>
           Image
         </Typography>
-        
+      
         <Divider sx={{ mb: 3 }} />
       
 
@@ -74,6 +75,16 @@ const App: React.FC = () => {
         <ImageGallery images={images} onImageDeleted={handleImageDeleted} />
       </Container>
     </ThemeProvider>
+      <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              backdropFilter: "blur (8px)",
+              backgroundColor: "rgba(100, 100, 100, 0.25)",
+              color: "rgba(255, 255, 255, 0.9)",
+            },
+          }}
+        />
   </PasswordCheck>
   );
 };
