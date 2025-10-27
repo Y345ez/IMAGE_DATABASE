@@ -2,6 +2,7 @@ export interface Env {
   GithubOwner: string;
   GithubRepo: string;
   GithubPAT: string;
+  API_KEY: string; 
 }
 
 export default {
@@ -20,6 +21,22 @@ export default {
     }
 
     if (request.method === 'POST' && new URL(request.url).pathname === '/upload') {
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return new Response('Unauthorized: Missing Bearer token', { 
+          status: 401,
+          headers: corsHeaders
+        });
+      }
+      
+      const apiKey = authHeader.substring('Bearer '.length);
+      if (apiKey !== env.API_KEY) {
+        return new Response('Unauthorized: Invalid API key', { 
+          status: 401,
+          headers: corsHeaders
+        });
+      }
+
       try {
         const Image: string = await request.text();
         let ImageID: string = '';
@@ -28,19 +45,18 @@ export default {
           ImageID += String.fromCharCode(Math.floor(Math.random() * 26) + 97);
         }
         
-
         const base64Match = Image.match(/^data:image\/(\w+);base64,(.+)$/);
         if (!base64Match) {
 
           console.warn("Input is not a data URL, assuming JPEG format");
-          const rawBase64 = Image.replace(/^data:image\/\w+;base64,/, '');
+          const rawBase64 = Image.replace(/^image\/\w+;base64,/, '');
           if (!rawBase64 || rawBase64.length === 0) {
             return new Response('Invalid image data', { 
               status: 400,
               headers: corsHeaders
             });
           }
-
+          
           const response = await fetch(`https://api.github.com/repos/${env.GithubOwner}/${env.GithubRepo}/contents/${ImageID}.webp`, {
             method: 'PUT',
             headers: {
@@ -49,7 +65,7 @@ export default {
               'User-Agent': 'langningchen-image',
             },
             body: JSON.stringify({
-              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.cf?.country}/${request.cf?.city}`,
+              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.headers.get('CF-IPCountry') || 'unknown'}/${request.headers.get('CF-IPCity') || 'unknown'}`,
               content: rawBase64
             })
           });
@@ -103,8 +119,8 @@ export default {
             'User-Agent': 'langningchen-image',
           },
           body: JSON.stringify({
-            message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.cf?.country}/${request.cf?.city}`,
-            content: ImageData
+              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.headers.get('CF-IPCountry') || 'unknown'}/${request.headers.get('CF-IPCity') || 'unknown'}`,
+            content: ImageData 
           })
         });
         
@@ -174,7 +190,7 @@ export default {
         
         return new Response(imageBuffer, { 
           headers: { 
-            'Content-Type': 'image/webp', // Always serve as WebP
+            'Content-Type': 'image/webp',
             'Cache-Control': 'public, max-age=31536000, immutable',
             'ETag': imageETag,
             'Last-Modified': new Date().toUTCString(),
