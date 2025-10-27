@@ -6,14 +6,12 @@ export interface Env {
 
 export default {
   async fetch(request: Request, env: Env, ctx: any): Promise<Response> {
-    // Add CORS headers for all responses
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
-    // Handle preflight requests
     if (request.method === 'OPTIONS') {
       return new Response(null, { 
         status: 204,
@@ -21,23 +19,19 @@ export default {
       });
     }
 
-    // Handle image upload
     if (request.method === 'POST' && new URL(request.url).pathname === '/upload') {
       try {
         const Image: string = await request.text();
         let ImageID: string = '';
         
-        // Generate random ID
         for (let i = 0; i < 32; i++) {
           ImageID += String.fromCharCode(Math.floor(Math.random() * 26) + 97);
         }
         
-        // Validate and extract base64 data
-        // This regex now matches any image type (jpeg, png, gif, webp, etc.)
+
         const base64Match = Image.match(/^data:image\/(\w+);base64,(.+)$/);
         if (!base64Match) {
-          // If it's not a data URL, assume it's raw base64 (as in your original worker)
-          // and treat it as JPEG for backward compatibility
+
           console.warn("Input is not a data URL, assuming JPEG format");
           const rawBase64 = Image.replace(/^data:image\/\w+;base64,/, '');
           if (!rawBase64 || rawBase64.length === 0) {
@@ -46,11 +40,7 @@ export default {
               headers: corsHeaders
             });
           }
-          
-          // For true WebP conversion in a Worker, we need to use a library or service
-          // Since we can't easily do this in a basic Worker, we'll store the original data
-          // but with a .webp extension. The client should ideally send WebP.
-          // For this example, we'll just use the raw data as is.
+
           const response = await fetch(`https://api.github.com/repos/${env.GithubOwner}/${env.GithubRepo}/contents/${ImageID}.webp`, {
             method: 'PUT',
             headers: {
@@ -59,8 +49,8 @@ export default {
               'User-Agent': 'langningchen-image',
             },
             body: JSON.stringify({
-              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.headers.get('CF-IPCountry')}`,
-              content: rawBase64 // Use the raw base64 data
+              message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.cf?.country}/${request.cf?.city}`,
+              content: rawBase64
             })
           });
           
@@ -89,10 +79,8 @@ export default {
           });
         }
         
-        // If it is a data URL, extract type and data
         const [, imageType, ImageData] = base64Match;
         
-        // Validate base64 data
         if (!ImageData || ImageData.length === 0) {
           return new Response('Invalid image data', { 
             status: 400,
@@ -100,7 +88,6 @@ export default {
           });
         }
         
-        // Validate image type (optional, but good for security)
         if (!['jpeg', 'jpg', 'png', 'gif', 'webp'].includes(imageType.toLowerCase())) {
           return new Response('Unsupported image type', { 
             status: 400,
@@ -108,10 +95,6 @@ export default {
           });
         }
         
-        // For true WebP conversion in a Worker, we need to use a library or service
-        // Since we can't easily do this in a basic Worker, we'll store the original data
-        // but with a .webp extension. The client should ideally send WebP.
-        // For this example, we'll just use the extracted base64 data as is.
         const response = await fetch(`https://api.github.com/repos/${env.GithubOwner}/${env.GithubRepo}/contents/${ImageID}.webp`, {
           method: 'PUT',
           headers: {
@@ -120,8 +103,8 @@ export default {
             'User-Agent': 'langningchen-image',
           },
           body: JSON.stringify({
-            message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.headers.get('CF-IPCountry')}`,
-            content: ImageData // Use the extracted base64 data
+            message: `Upload from ${request.headers.get('CF-Connecting-IP')} ${request.cf?.country}/${request.cf?.city}`,
+            content: ImageData
           })
         });
         
@@ -157,7 +140,6 @@ export default {
       }
     }
     
-    // Handle image retrieval
     else if (request.method === 'GET') {
       const ImageID = new URL(request.url).pathname.substring(1);
       
@@ -165,7 +147,6 @@ export default {
         return new Response('404 Not Found', { status: 404, headers: { 'Content-Type': 'text/plain' } });
       }
       
-      // Check if client has cached version using ETag
       const clientETag = request.headers.get('If-None-Match');
       const imageETag = `"${ImageID}"`;
       
@@ -173,7 +154,6 @@ export default {
         return new Response(null, { status: 304 });
       }
       
-      // Always try to get the image as WebP
       const githubUrl = `https://api.github.com/repos/${env.GithubOwner}/${env.GithubRepo}/contents/${ImageID}.webp?1=1`;
       
       try {
