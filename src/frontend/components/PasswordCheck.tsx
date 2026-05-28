@@ -38,7 +38,7 @@ const PasswordCheck: React.FC<PasswordCheckProps> = ({ children }) => {
 
   const handlePasswordSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    const correctPassword = process.env.NEXT_PUBLIC_PASSWORD; 
+    const correctPassword = import.meta.env.VITE_PASSWORD; 
 
     if (correctPassword && password === correctPassword) {
       setIsAuthenticated(true);
